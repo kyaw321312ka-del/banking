@@ -25,11 +25,10 @@ type SidebarProps = {
 };
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "My Accounts", href: "/accounts", icon: Wallet },
-  { name: "Transactions", href: "/transactions", icon: ArrowLeftRight },
-  { name: "My Cards", href: "/cards", icon: CreditCard },
-  { name: "Analytics", href: "/analytics", icon: ChartNoAxesCombined },
+  { name: "Home", href: "/", icon: LayoutDashboard },
+  { name: "My Banks", href: "/my-banks", icon: Wallet },
+  { name: "Transaction History", href: "/transaction-history", icon: ArrowLeftRight },
+  { name: "Transfer Funds", href: "/payment-transfer", icon: ArrowLeftRight }
 ];
 
 const isRouteActive = (pathname: string, href: string) =>
