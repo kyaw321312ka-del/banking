@@ -1,6 +1,6 @@
 export default function Rootlayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-   =<main>
+   <main>
     SIDEBAR
     {children}
    </main>
