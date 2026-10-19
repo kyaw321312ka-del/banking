@@ -17,7 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 
-import logo from "../icons/logo.webp";
+import logo from "../icons/logo.png";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
