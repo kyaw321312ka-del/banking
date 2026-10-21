@@ -1,9 +1,15 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
 import Sidebar from "@/components/ui/Sidebar";
 import MobileNav from "@/components/ui/MobileNav";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
 import { getUserNameParts } from "@/lib/utils";
+
+export const metadata = {
+  title: "NYX Banking",
+  description: "Manage your finances with ease.",
+};
 
 export default function RootLayout({
   children,
@@ -13,20 +19,21 @@ export default function RootLayout({
   return (
     <div className="min-h-screen bg-gray-50 lg:flex">
       <Suspense fallback={<NavigationFallback />}>
-        <SessionNavigation />
+        <AuthenticatedLayout>{children}</AuthenticatedLayout>
       </Suspense>
-
-      {/* Page content */}
-      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        {children}
-      </main>
     </div>
   );
 }
 
-async function SessionNavigation() {
+async function AuthenticatedLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   const sessionUser = await getLoggedInUser();
-  const user = sessionUser ? getUserNameParts(sessionUser.name) : null;
+  if (!sessionUser) redirect("/sign-in");
+
+  const user = getUserNameParts(sessionUser.name);
 
   return (
     <>
@@ -34,6 +41,9 @@ async function SessionNavigation() {
         <Sidebar user={user} />
       </div>
       <MobileNav user={user} />
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        {children}
+      </main>
     </>
   );
 }

@@ -21,6 +21,7 @@ interface RightSidebarProps {
   banks: {
     id: string;
     name: string;
+    balance?: number;
     cardholder?: string;
     expiryDate?: string;
     cardNumber?: string;
@@ -123,7 +124,14 @@ const RightSidebar = ({
     </Link>
   </div>
 
-  <BankCard banks={banks} />
+  <BankCard
+    banks={banks.map((bank) => ({
+      ...bank,
+      cardholder: user
+        ? `${user.firstName} ${user.lastName}`.trim()
+        : bank.cardholder,
+    }))}
+  />
 </section>
 
       {/* Recent transactions */}

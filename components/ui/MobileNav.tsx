@@ -30,7 +30,14 @@ const navigation = [
   { name: "Help & Support", href: "/help", icon: CircleHelp },
 ];
 
-const MobileNav = ({ user }) => {
+interface MobileNavProps {
+  user: {
+    firstName: string;
+    lastName: string;
+  } | null;
+}
+
+const MobileNav = ({ user }: MobileNavProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 

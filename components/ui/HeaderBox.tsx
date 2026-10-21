@@ -4,7 +4,6 @@ import { Sparkles } from "lucide-react";
 interface HeaderBoxProps {
   type: string;
   title: string;
-  description: string;
   user: { firstName: string; lastName: string } | null;
   subtext: string;
 }
@@ -12,7 +11,6 @@ interface HeaderBoxProps {
 const HeaderBox = ({
   type,
   title,
-  description,
   user,
   subtext,
 }: HeaderBoxProps) => {
@@ -36,10 +34,6 @@ const HeaderBox = ({
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
           {title}
         </h1>
-
-        <p className="max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-          {description}
-        </p>
 
         {subtext && (
           <p className="text-sm font-medium text-gray-600">

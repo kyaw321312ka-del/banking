@@ -39,8 +39,8 @@ const Dashboard = async () => {
   ];
 
   const banks = [
-    { id: "bank1", name: "Bank A" },
-    { id: "bank2", name: "Bank B" },
+    { id: "bank1", name: "Bank A", balance: 900 },
+    { id: "bank2", name: "Bank B", balance: 350 },
   ];
 
   return (
@@ -51,7 +51,6 @@ const Dashboard = async () => {
           <HeaderBox
             type="greeting"
             title="Welcome to NYX Banking!"
-            description="Get a clear overview of your accounts and financial activity."
             user={loggedInUser}
             subtext="Manage your finances with ease."
           />

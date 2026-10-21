@@ -8,6 +8,7 @@ interface Bank {
   id: string;
   name: string;
   cardholder?: string;
+  balance?: number;
   expiryDate?: string;
   cardNumber?: string;
   network?: "VISA" | "MASTERCARD";
@@ -23,6 +24,12 @@ const cardColors = {
   blue: "from-sky-400 via-blue-500 to-blue-600",
   dark: "from-slate-700 via-slate-800 to-slate-900",
 };
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
 
 const BankCard = ({ banks }: BankCardProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -85,6 +92,12 @@ const BankCard = ({ banks }: BankCardProps) => {
 
         {/* Card details */}
         <div className="absolute inset-x-4 bottom-4">
+          {bank.balance !== undefined && (
+            <p className="mb-2 text-lg font-bold tabular-nums sm:text-xl">
+              {formatCurrency(bank.balance)}
+            </p>
+          )}
+
           <div className="mb-2 flex items-end justify-between gap-2">
             <p className="truncate text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
               {bank.cardholder ?? "NYX ACCOUNT HOLDER"}

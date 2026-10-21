@@ -160,3 +160,48 @@
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+/* Subtle scrollbar for the NYX Banking auth pages */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 6px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.auth-signup-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.auth-signup-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.auth-signup-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.auth-signup-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.auth-signup-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
