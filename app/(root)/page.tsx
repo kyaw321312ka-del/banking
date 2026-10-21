@@ -1,12 +1,22 @@
+import { Suspense } from "react";
+
 import HeaderBox from "@/components/ui/HeaderBox";
 import TotalBalanceBox from "@/components/ui/TotalBalanceBox";
 import RightSidebar from "@/components/ui/RightSidebar";
+import { getLoggedInUser } from "@/lib/actions/user.actions";
+import { getUserNameParts } from "@/lib/utils";
 
-const Home = () => {
-  const loggedInUser = {
-    firstName: "John",
-    lastName: "Doe",
-  };
+const Home = () => (
+  <Suspense fallback={<DashboardFallback />}>
+    <Dashboard />
+  </Suspense>
+);
+
+const Dashboard = async () => {
+  const sessionUser = await getLoggedInUser();
+  const loggedInUser = sessionUser
+    ? getUserNameParts(sessionUser.name)
+    : null;
 
   const accounts = [
     { id: "checking", name: "Checking", balance: 900 },
@@ -67,5 +77,15 @@ const Home = () => {
     </section>
   );
 };
+
+const DashboardFallback = () => (
+  <section
+    aria-label="Loading dashboard"
+    className="mx-auto w-full max-w-[1600px] animate-pulse space-y-6 p-4 sm:p-6 lg:p-8"
+  >
+    <div className="h-36 rounded-2xl bg-gray-200" />
+    <div className="h-48 rounded-2xl bg-gray-200" />
+  </section>
+);
 
 export default Home;

@@ -15,13 +15,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+import { logoutAccount } from "@/lib/actions/user.actions";
 import logo from "../icons/logo.png";
 
 type SidebarProps = {
   user: {
     firstName: string;
     lastName: string;
-  };
+  } | null;
 };
 
 const navigation = [
@@ -39,9 +40,10 @@ const isRouteActive = (pathname: string, href: string) =>
 const Sidebar = ({ user }: SidebarProps) => {
   const pathname = usePathname();
 
-  const fullName = `${user.firstName} ${user.lastName}`;
-  const initials =
-    `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "";
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : "";
 
   const linkClass = (active: boolean) =>
     `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors duration-200 ${
@@ -85,24 +87,26 @@ const Sidebar = ({ user }: SidebarProps) => {
       </Link>
 
       {/* User profile */}
-      <div className="mb-7 flex shrink-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 text-sm font-bold text-white">
-          {initials}
-        </div>
+      {user && (
+        <div className="mb-7 flex shrink-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 text-sm font-bold text-white">
+            {initials}
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">
-            {fullName}
-          </p>
-          <p className="mt-1 text-xs text-gray-400">Personal Account</p>
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">
+              {fullName}
+            </p>
+            <p className="mt-1 text-xs text-gray-400">Personal Account</p>
+          </div>
 
-        <ChevronRight
-          size={16}
-          className="shrink-0 text-gray-500"
-          aria-hidden="true"
-        />
-      </div>
+          <ChevronRight
+            size={16}
+            className="shrink-0 text-gray-500"
+            aria-hidden="true"
+          />
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1" aria-label="Main navigation">
@@ -192,18 +196,20 @@ const Sidebar = ({ user }: SidebarProps) => {
           </p>
         </div>
 
-        <Link
-          href="/logout"
-          className="mt-3 flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-gray-400 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-400"
-        >
-          <LogOut
-            size={19}
-            strokeWidth={1.8}
-            className="shrink-0"
-            aria-hidden="true"
-          />
-          <span>Sign out</span>
-        </Link>
+        <form action={logoutAccount}>
+          <button
+            type="submit"
+            className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-gray-400 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-400"
+          >
+            <LogOut
+              size={19}
+              strokeWidth={1.8}
+              className="shrink-0"
+              aria-hidden="true"
+            />
+            <span>Sign out</span>
+          </button>
+        </form>
       </div>
     </aside>
   );

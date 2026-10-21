@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,6 +18,7 @@ import {
 
 import logo from "../icons/logo.png";
 import CustomInput from "./CustomInput";
+import { signIn, signUp } from "@/lib/actions/user.actions";
 
 /* -------------------- Validation schemas -------------------- */
 
@@ -33,12 +35,6 @@ const signUpSchema = z.object({
   state: z.string().trim().min(1, "State is required."),
   postalCode: z.string().trim().min(1, "Postal code is required."),
   dateOfBirth: z.string().min(1, "Date of birth is required."),
-  ssn: z
-    .string()
-    .regex(
-      /^\d{3}-?\d{2}-?\d{4}$/,
-      "Enter a valid 9-digit SSN.",
-    ),
   email: z.string().trim().email("Enter a valid email address."),
   password: z
     .string()
@@ -118,9 +114,11 @@ const AuthForm = ({ type }: { type: string }) => {
 /* -------------------- Sign in -------------------- */
 
 const SignInFields = () => {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -131,9 +129,14 @@ const SignInFields = () => {
   });
 
   const onSubmit = async (values: SignInValues) => {
-    // TODO: Send credentials to your authentication API.
-    // Do not log passwords or other sensitive form values.
-    void values;
+    const result = await signIn(values);
+    if (!result.success) {
+      setError("root.server", { message: result.message });
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
   };
 
   return (
@@ -169,6 +172,12 @@ const SignInFields = () => {
         </Link>
       </div>
 
+      {errors.root?.server?.message && (
+        <p role="alert" className="text-sm text-red-600">
+          {errors.root.server.message}
+        </p>
+      )}
+
       <button
         type="submit"
         disabled={isSubmitting}
@@ -184,9 +193,11 @@ const SignInFields = () => {
 /* -------------------- Sign up -------------------- */
 
 const SignUpFields = () => {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -198,16 +209,26 @@ const SignUpFields = () => {
       state: "",
       postalCode: "",
       dateOfBirth: "",
-      ssn: "",
       email: "",
       password: "",
     },
   });
 
   const onSubmit = async (values: SignUpValues) => {
-    // TODO: Send registration data to your secure backend API.
-    // Never log or store SSNs in plaintext.
-    void values;
+    try {
+      const result = await signUp(values);
+      if (!result.success) {
+        setError("root.server", { message: result.message });
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("root.server", {
+        message: "We couldn't create your account. Please try again later.",
+      });
+    }
   };
 
   return (
@@ -289,21 +310,6 @@ const SignUpFields = () => {
         error={errors.dateOfBirth?.message}
       />
 
-      {/* SSN */}
-      <CustomInput
-        name="ssn"
-        label="Social Security Number (SSN)"
-        placeholder="XXX-XX-XXXX"
-        autoComplete="off"
-        register={register}
-        error={errors.ssn?.message}
-      />
-
-      <p className="-mt-3 text-xs leading-5 text-slate-500">
-        Only provide an SSN if required for your verified banking
-        registration process.
-      </p>
-
       {/* Email */}
       <CustomInput
         name="email"
@@ -332,6 +338,12 @@ const SignUpFields = () => {
         By creating an account, you agree to the applicable terms and
         privacy policy.
       </p>
+
+      {errors.root?.server?.message && (
+        <p role="alert" className="text-sm text-red-600">
+          {errors.root.server.message}
+        </p>
+      )}
 
       <button
         type="submit"

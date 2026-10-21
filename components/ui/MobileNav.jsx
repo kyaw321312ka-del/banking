@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 
+import { logoutAccount } from "@/lib/actions/user.actions";
 import logo from "../icons/logo.png";
 
 const navigation = [
@@ -33,9 +34,10 @@ const MobileNav = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
-  const fullName = `${user.firstName} ${user.lastName}`;
-  const initials =
-    `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "";
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : "";
 
   const closeMenu = () => setIsOpen(false);
 
@@ -69,12 +71,14 @@ const MobileNav = ({ user }) => {
         </Link>
 
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 ring-1 ring-blue-100"
-            aria-label={`Signed in as ${fullName}`}
-          >
-            {initials}
-          </div>
+          {user && (
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 ring-1 ring-blue-100"
+              aria-label={`Signed in as ${fullName}`}
+            >
+              {initials}
+            </div>
+          )}
 
           <button
             type="button"
@@ -104,21 +108,22 @@ const MobileNav = ({ user }) => {
             aria-label="Mobile navigation"
             className="absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-gray-200 bg-white px-4 pb-5 pt-4 shadow-xl sm:px-6"
           >
-            {/* User details */}
-            <div className="mb-5 flex items-center gap-3 rounded-2xl bg-gray-50 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white">
-                {initials}
-              </div>
+            {user && (
+              <div className="mb-5 flex items-center gap-3 rounded-2xl bg-gray-50 p-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white">
+                  {initials}
+                </div>
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-900">
-                  {fullName}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Personal Account
-                </p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {fullName}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Personal Account
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
               Navigation
@@ -152,14 +157,15 @@ const MobileNav = ({ user }) => {
             </div>
 
             <div className="mt-5 border-t border-gray-100 pt-4">
-              <Link
-                href="/logout"
-                onClick={closeMenu}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-              >
-                <LogOut size={19} />
-                Sign out
-              </Link>
+              <form action={logoutAccount}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                >
+                  <LogOut size={19} />
+                  Sign out
+                </button>
+              </form>
             </div>
           </nav>
         </>
