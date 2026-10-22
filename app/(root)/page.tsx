@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 import HeaderBox from "@/components/ui/HeaderBox";
+import PlaidLink from "@/components/ui/PlaidLink";
 import TotalBalanceBox from "@/components/ui/TotalBalanceBox";
 import RightSidebar from "@/components/ui/RightSidebar";
-import { getLoggedInUser } from "@/lib/actions/user.actions";
+import { getLoggedInUser } from "@/lib/auth";
 import { getUserNameParts } from "@/lib/utils";
 
 const Home = () => (
@@ -13,6 +15,7 @@ const Home = () => (
 );
 
 const Dashboard = async () => {
+  await connection();
   const sessionUser = await getLoggedInUser();
   const loggedInUser = sessionUser
     ? getUserNameParts(sessionUser.name)
@@ -54,6 +57,10 @@ const Dashboard = async () => {
             user={loggedInUser}
             subtext="Manage your finances with ease."
           />
+
+          {sessionUser && (
+            <PlaidLink user={{ email: sessionUser.email }} variant="ghost" />
+          )}
 
           <TotalBalanceBox
             accounts={accounts}

@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import Sidebar from "@/components/ui/Sidebar";
 import MobileNav from "@/components/ui/MobileNav";
-import { getLoggedInUser } from "@/lib/actions/user.actions";
+import { getLoggedInUser } from "@/lib/auth";
 import { getUserNameParts } from "@/lib/utils";
 
 export const metadata = {
@@ -30,6 +31,7 @@ async function AuthenticatedLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   const sessionUser = await getLoggedInUser();
   if (!sessionUser) redirect("/sign-in");
 

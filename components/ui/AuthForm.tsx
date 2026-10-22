@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type FieldValues, type UseFormSetError } from "react-hook-form";
+import {
+  useForm,
+  type FieldValues,
+  type UseFormSetError,
+} from "react-hook-form";
 import {
   UserRound,
   Mail,
@@ -352,7 +356,7 @@ const SignInFields = () => {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-      <CustomInput
+      <CustomInput<SignInValues>
         name="email"
         label="Email address"
         placeholder="you@example.com"
@@ -363,7 +367,7 @@ const SignInFields = () => {
         error={errors.email?.message}
       />
 
-      <CustomInput
+      <CustomInput<SignInValues>
         name="password"
         label="Password"
         placeholder="Enter your password"
@@ -425,23 +429,23 @@ const SignUpFields = () => {
         <legend className="sr-only">Personal details</legend>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <CustomInput name="firstName" label="First name" placeholder="First name" autoComplete="given-name" icon={UserRound} register={register} error={errors.firstName?.message} />
-          <CustomInput name="lastName" label="Last name" placeholder="Last name" autoComplete="family-name" register={register} error={errors.lastName?.message} />
+          <CustomInput<SignUpValues> name="firstName" label="First name" placeholder="First name" autoComplete="given-name" icon={UserRound} register={register} error={errors.firstName?.message} />
+          <CustomInput<SignUpValues> name="lastName" label="Last name" placeholder="Last name" autoComplete="family-name" register={register} error={errors.lastName?.message} />
         </div>
 
-        <CustomInput name="address" label="Street address" placeholder="Enter your street address" autoComplete="street-address" icon={MapPin} register={register} error={errors.address?.message} />
+        <CustomInput<SignUpValues> name="address" label="Street address" placeholder="Enter your street address" autoComplete="street-address" icon={MapPin} register={register} error={errors.address?.message} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <CustomInput name="city" label="City" placeholder="City" autoComplete="address-level2" register={register} error={errors.city?.message} />
-          <CustomInput name="state" label="State / Region" placeholder="State" autoComplete="address-level1" register={register} error={errors.state?.message} />
-          <CustomInput name="postalCode" label="Postal code" placeholder="Postal code" autoComplete="postal-code" register={register} error={errors.postalCode?.message} />
+          <CustomInput<SignUpValues> name="city" label="City" placeholder="City" autoComplete="address-level2" register={register} error={errors.city?.message} />
+          <CustomInput<SignUpValues> name="state" label="State / Region" placeholder="State" autoComplete="address-level1" register={register} error={errors.state?.message} />
+          <CustomInput<SignUpValues> name="postalCode" label="Postal code" placeholder="Postal code" autoComplete="postal-code" register={register} error={errors.postalCode?.message} />
         </div>
 
-        <CustomInput name="dateOfBirth" label="Date of birth" type="date" max={maxBirthDate} autoComplete="bday" icon={CalendarDays} register={register} error={errors.dateOfBirth?.message} />
+        <CustomInput<SignUpValues> name="dateOfBirth" label="Date of birth" placeholder="Date of birth" type="date" autoComplete="bday" icon={CalendarDays} register={register} error={errors.dateOfBirth?.message} />
 
-        <CustomInput name="email" label="Email address" placeholder="you@example.com" type="email" autoComplete="email" icon={Mail} register={register} error={errors.email?.message} />
+        <CustomInput<SignUpValues> name="email" label="Email address" placeholder="you@example.com" type="email" autoComplete="email" icon={Mail} register={register} error={errors.email?.message} />
 
-        <CustomInput
+        <CustomInput<SignUpValues>
           name="password"
           label="Password"
           placeholder="8+ characters, 1 uppercase, 1 number"

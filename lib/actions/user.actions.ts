@@ -2,10 +2,25 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { AppwriteException, ID } from "node-appwrite";
+import {
+  AppwriteException,
+  ID,
+  Permission,
+  Role,
+} from "node-appwrite";
 import { z } from "zod";
 
 import { createAdminClient, createSessionClient } from "../appwrite";
+import { CountryCode, Products } from "plaid";
+import { plaidClient } from "../plaid";
+
+const getRequiredEnv = (name: string) => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+};
 
 interface Credentials {
   email: string;
@@ -164,26 +179,6 @@ export const signUp = async (userData: SignUpParams) => {
   }
 };
 
-export async function getLoggedInUser() {
-  try {
-    const { account } = await createSessionClient();
-    const user = await account.get();
-
-    return JSON.parse(JSON.stringify(user)) as typeof user;
-  } catch (error) {
-    if (error instanceof Error && error.message === "No session") {
-      return null;
-    }
-
-    if (error instanceof AppwriteException && error.code === 401) {
-      return null;
-    }
-
-    console.error("Failed to get the logged-in user:", error);
-    throw error;
-  }
-}
-
 export const logoutAccount = async () => {
   try {
     const { account } = await createSessionClient();
@@ -204,3 +199,100 @@ export const logoutAccount = async () => {
 
   redirect("/sign-in");
 };
+
+const exchangePlaidInputSchema = z.object({
+  publicToken: z.string().min(1),
+  accountId: z.string().min(1),
+});
+
+export async function createLinkToken() {
+  const { account } = await createSessionClient();
+  const user = await account.get();
+
+  try {
+    const response = await plaidClient.linkTokenCreate({
+      user: { client_user_id: user.$id },
+      client_name: "NYX Banking",
+      products: [Products.Auth],
+      language: "en",
+      country_codes: [CountryCode.Us],
+      ...(process.env.PLAID_REDIRECT_URI
+        ? { redirect_uri: process.env.PLAID_REDIRECT_URI }
+        : {}),
+    });
+
+    return response.data.link_token;
+  } catch (error) {
+    const plaidError = error as {
+      response?: {
+        status?: number;
+        data?: {
+          error_type?: string;
+          error_code?: string;
+          error_message?: string;
+          display_message?: string | null;
+          request_id?: string;
+        };
+      };
+    };
+    const details = plaidError.response?.data;
+
+    console.error("Plaid link token creation failed:", {
+      status: plaidError.response?.status,
+      errorType: details?.error_type,
+      errorCode: details?.error_code,
+      errorMessage: details?.error_message,
+      requestId: details?.request_id,
+    });
+
+    throw new Error(
+      details?.display_message ||
+        (details?.error_code
+          ? `Plaid could not create a link token (${details.error_code}). Check your Plaid environment, credentials, product access, and redirect URI settings.`
+          : "Plaid could not create a link token. Check the server logs for details."),
+    );
+  }
+}
+
+export async function exchangePublicToken(input: {
+  publicToken: string;
+  accountId: string;
+}) {
+  const { publicToken, accountId } = exchangePlaidInputSchema.parse(input);
+  const { account } = await createSessionClient();
+  const user = await account.get();
+  const { tables } = await createAdminClient();
+
+  const exchange = await plaidClient.itemPublicTokenExchange({
+    public_token: publicToken,
+  });
+  const accessToken = exchange.data.access_token;
+  const accounts = await plaidClient.accountsGet({
+    access_token: accessToken,
+  });
+  const item = await plaidClient.itemGet({ access_token: accessToken });
+  const selectedAccount = accounts.data.accounts.find(
+    (plaidAccount) => plaidAccount.account_id === accountId,
+  );
+
+  if (!selectedAccount || !item.data.item.institution_id) {
+    throw new Error("The selected account was not returned by Plaid.");
+  }
+
+  await tables.createRow({
+    databaseId: getRequiredEnv("APPWRITE_Database_ID"),
+    tableId: getRequiredEnv("APPWRITE_Bank_Table_ID"),
+    rowId: ID.unique(),
+    data: {
+      userId: user.$id,
+      bankId: item.data.item.institution_id,
+      accountId: selectedAccount.account_id,
+      accessToken,
+      fundingSourceUrl: "",
+      shareabaleId: ID.unique(),
+    },
+    permissions: [Permission.read(Role.user(user.$id))],
+  });
+
+  return { success: true };
+}
