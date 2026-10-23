@@ -1,9 +1,137 @@
-import React from 'react'
+import { Suspense } from "react";
+import { Landmark, Wallet } from "lucide-react";
+import { connection } from "next/server";
 
-const MyBanks = () => {
+import PlaidLink from "@/components/ui/PlaidLink";
+import { getBanks } from "@/lib/actions/bank.actions";
+import { getLoggedInUser } from "@/lib/auth";
+
+const formatCurrency = (amount: number, currency = "USD") =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+  }).format(amount);
+
+export default function MyBanks() {
   return (
-    <div>MyBanks</div>
-  )
+    <Suspense fallback={<BanksFallback />}>
+      <BanksContent />
+    </Suspense>
+  );
 }
 
-export default MyBanks
+async function BanksContent() {
+  await connection();
+  const user = await getLoggedInUser();
+
+  if (!user) return null;
+
+  const banks = await getBanks({ userId: user.$id });
+
+  return (
+    <section className="mx-auto w-full max-w-5xl space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Banks</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Linked accounts and current balances from your financial
+            institutions.
+          </p>
+        </div>
+        <PlaidLink user={{ email: user.email }} variant="ghost" />
+      </header>
+
+      {banks.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+          <Landmark className="mx-auto mb-3 text-gray-400" size={28} />
+          <h2 className="font-semibold text-gray-900">No linked banks yet</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Connect a bank to see its accounts and live balances here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {banks.map((bank) => (
+            <section
+              key={bank.id}
+              className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <Landmark size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold text-gray-900">
+                      {bank.name}
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      {bank.accounts.length}{" "}
+                      {bank.accounts.length === 1 ? "account" : "accounts"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {bank.items.map((item) => (
+                    <PlaidLink
+                      key={item.id}
+                      user={{ email: user.email }}
+                      updateBankRowId={item.id}
+                      variant="ghost"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <ul className="divide-y divide-gray-100">
+                {bank.accounts.map((account) => (
+                  <li
+                    key={account.account_id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Wallet className="shrink-0 text-gray-400" size={18} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-800">
+                          {account.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {account.mask
+                            ? `•••• ${account.mask}`
+                            : "Account number unavailable"}
+                          {account.subtype
+                            ? ` · ${account.subtype}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold tabular-nums text-gray-900">
+                      {account.balances.current === null
+                        ? "Balance unavailable"
+                        : formatCurrency(
+                            account.balances.current,
+                            account.balances.iso_currency_code ?? "USD",
+                          )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BanksFallback() {
+  return (
+    <section
+      aria-label="Loading bank accounts"
+      className="mx-auto w-full max-w-5xl animate-pulse space-y-4"
+    >
+      <div className="h-16 rounded-2xl bg-gray-200" />
+      <div className="h-48 rounded-2xl bg-gray-200" />
+    </section>
+  );
+}

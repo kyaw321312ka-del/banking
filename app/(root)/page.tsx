@@ -5,6 +5,7 @@ import HeaderBox from "@/components/ui/HeaderBox";
 import PlaidLink from "@/components/ui/PlaidLink";
 import TotalBalanceBox from "@/components/ui/TotalBalanceBox";
 import RightSidebar from "@/components/ui/RightSidebar";
+import { getAccounts, getBanks, getTransactions } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/auth";
 import { getUserNameParts } from "@/lib/utils";
 
@@ -21,30 +22,52 @@ const Dashboard = async () => {
     ? getUserNameParts(sessionUser.name)
     : null;
 
-  const accounts = [
-    { id: "checking", name: "Checking", balance: 900 },
-    { id: "savings", name: "Savings", balance: 350 },
-  ];
+  const [connectedAccounts, transactionResult, connectedBanks] =
+    sessionUser
+      ? await Promise.all([
+          getAccounts(),
+          getTransactions(),
+          getBanks({ userId: sessionUser.$id }),
+        ])
+      : [[], { transactions: [], errors: [] }, []];
+  const plaidTransactions = transactionResult.transactions;
 
-  const transactions = [
-    {
-      id: "txn1",
-      description: "Grocery Store",
-      amount: -50.25,
-      date: "2026-10-18",
-    },
-    {
-      id: "txn2",
-      description: "Salary",
-      amount: 2000,
-      date: "2026-10-17",
-    },
-  ];
-
-  const banks = [
-    { id: "bank1", name: "Bank A", balance: 900 },
-    { id: "bank2", name: "Bank B", balance: 350 },
-  ];
+  const accounts = connectedAccounts.map(({ account }) => ({
+    id: account.account_id,
+    name: account.name,
+    balance: account.balances.current,
+  }));
+  const totalCurrentBalance = accounts.every(
+    (account) => account.balance !== null,
+  )
+    ? accounts.reduce((total, account) => total + (account.balance ?? 0), 0)
+    : null;
+  const banks = connectedBanks.map((bank) => ({
+    id: bank.id,
+    name: bank.name,
+    balance:
+      bank.accounts.length > 0 &&
+      bank.accounts.every(
+      (account) => account.balances.current !== null,
+      )
+        ? bank.accounts.reduce(
+            (total, account) => total + (account.balances.current ?? 0),
+            0,
+          )
+        : undefined,
+    accountLabel:
+      bank.accounts.length === 1
+        ? bank.accounts[0].mask
+          ? `Account •••• ${bank.accounts[0].mask}`
+          : "Account number unavailable"
+        : `${bank.accounts.length} linked accounts`,
+  }));
+  const transactions = plaidTransactions.map((transaction) => ({
+    id: transaction.transaction_id,
+    description: transaction.name,
+    amount: -transaction.amount,
+    date: transaction.date,
+  }));
 
   return (
     <section className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
@@ -65,7 +88,7 @@ const Dashboard = async () => {
           <TotalBalanceBox
             accounts={accounts}
             totalBanks={banks.length}
-            totalCurrentBalance={1250}
+            totalCurrentBalance={totalCurrentBalance}
           />
 
           {/* Add other dashboard cards here */}
@@ -77,6 +100,12 @@ const Dashboard = async () => {
             user={loggedInUser}
             transactions={transactions}
             banks={banks}
+            transactionErrors={transactionResult.errors.map(
+              ({ message, code, requestId }) =>
+                `${message}${code !== "UNKNOWN" ? ` Plaid code: ${code}.` : ""}${
+                  requestId ? ` Request ID: ${requestId}.` : ""
+                }`,
+            )}
           />
         </div>
       </div>

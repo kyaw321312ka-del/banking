@@ -3,9 +3,9 @@ import AnimatedCounter from "./AnimatedCounter";
 import DoughnutChart from "./DoughnutChart";
 
 interface TotalBalanceBoxProps {
-  accounts: { id: string; name: string; balance: number }[];
+  accounts: { id: string; name: string; balance: number | null }[];
   totalBanks: number;
-  totalCurrentBalance: number;
+  totalCurrentBalance: number | null;
 }
 
 const TotalBalanceBox = ({
@@ -53,7 +53,11 @@ const TotalBalanceBox = ({
             </p>
 
             <div className="break-words text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              <AnimatedCounter amount={totalCurrentBalance} />
+              {totalCurrentBalance === null ? (
+                <span>Unavailable</span>
+              ) : (
+                <AnimatedCounter amount={totalCurrentBalance} />
+              )}
             </div>
 
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">

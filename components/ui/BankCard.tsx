@@ -8,10 +8,8 @@ interface Bank {
   id: string;
   name: string;
   cardholder?: string;
-  balance?: number;
-  expiryDate?: string;
-  cardNumber?: string;
-  network?: "VISA" | "MASTERCARD";
+  balance?: number | null;
+  accountLabel?: string;
   variant?: "purple" | "blue" | "dark";
 }
 
@@ -47,7 +45,7 @@ const BankCard = ({ banks }: BankCardProps) => {
       <div className="py-5 text-center">
         <p className="text-sm text-gray-500">No connected banks yet.</p>
         <Link
-          href="/banks"
+          href="/my-banks"
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
         >
           <Plus size={16} />
@@ -92,7 +90,7 @@ const BankCard = ({ banks }: BankCardProps) => {
 
         {/* Card details */}
         <div className="absolute inset-x-4 bottom-4">
-          {bank.balance !== undefined && (
+          {bank.balance != null && (
             <p className="mb-2 text-lg font-bold tabular-nums sm:text-xl">
               {formatCurrency(bank.balance)}
             </p>
@@ -102,18 +100,12 @@ const BankCard = ({ banks }: BankCardProps) => {
             <p className="truncate text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
               {bank.cardholder ?? "NYX ACCOUNT HOLDER"}
             </p>
-            <p className="shrink-0 text-xs font-semibold">
-              {bank.expiryDate ?? "••/••"}
-            </p>
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <p className="truncate font-mono text-xs font-semibold tracking-[0.12em] sm:text-sm">
-              {bank.cardNumber ?? "•••• •••• •••• 1234"}
+              {bank.accountLabel ?? "Linked bank account"}
             </p>
-            <span className="shrink-0 text-[10px] font-black italic sm:text-xs">
-              {bank.network ?? "VISA"}
-            </span>
           </div>
         </div>
       </div>

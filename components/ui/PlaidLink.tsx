@@ -7,7 +7,11 @@ import {
   type PlaidLinkOnSuccess,
 } from "react-plaid-link";
 
-import { createLinkToken, exchangePublicToken } from "@/lib/actions/user.actions";
+import {
+  createBankUpdateLinkToken,
+  createLinkToken,
+  exchangePublicToken,
+} from "@/lib/actions/user.actions";
 import { Button } from "./button";
 
 interface PlaidLinkProps {
@@ -15,9 +19,14 @@ interface PlaidLinkProps {
     email: string;
   };
   variant?: "primary" | "ghost";
+  updateBankRowId?: string;
 }
 
-const PlaidLink = ({ user, variant = "primary" }: PlaidLinkProps) => {
+const PlaidLink = ({
+  user,
+  variant = "primary",
+  updateBankRowId,
+}: PlaidLinkProps) => {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -25,7 +34,9 @@ const PlaidLink = ({ user, variant = "primary" }: PlaidLinkProps) => {
   useEffect(() => {
     let isActive = true;
 
-    createLinkToken()
+    (updateBankRowId
+      ? createBankUpdateLinkToken(updateBankRowId)
+      : createLinkToken())
       .then((linkToken) => {
         if (isActive) setToken(linkToken);
       })
@@ -43,10 +54,31 @@ const PlaidLink = ({ user, variant = "primary" }: PlaidLinkProps) => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [updateBankRowId]);
 
   const onSuccess = useCallback<PlaidLinkOnSuccess>(
     async (publicToken, { accounts }) => {
+      if (updateBankRowId) {
+        setToken(null);
+        setErrorMessage("");
+
+        try {
+          const refreshedToken =
+            await createBankUpdateLinkToken(updateBankRowId);
+          setToken(refreshedToken);
+        } catch (error) {
+          console.error("Failed to refresh Plaid update Link token:", error);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "The bank was updated, but another update session could not be prepared.",
+          );
+        }
+
+        router.refresh();
+        return;
+      }
+
       const accountId = accounts[0]?.id;
 
       if (!publicToken || !accountId) {
@@ -65,7 +97,7 @@ const PlaidLink = ({ user, variant = "primary" }: PlaidLinkProps) => {
         setErrorMessage("We couldn't connect this bank account. Please try again.");
       }
     },
-    [router],
+    [router, updateBankRowId],
   );
 
   const { open, ready } = usePlaidLink({
@@ -81,9 +113,15 @@ const PlaidLink = ({ user, variant = "primary" }: PlaidLinkProps) => {
         disabled={!ready || !token}
         variant={variant === "primary" ? "default" : "ghost"}
         className="w-full rounded-xl px-5 py-3.5 text-sm font-semibold"
-        aria-label={`Connect a bank account${user.email ? ` for ${user.email}` : ""}`}
+        aria-label={
+          updateBankRowId
+            ? "Grant transaction access for this bank"
+            : `Connect a bank account${user.email ? ` for ${user.email}` : ""}`
+        }
       >
-        Connect your bank account
+        {updateBankRowId
+          ? "Grant transaction access"
+          : "Connect your bank account"}
       </Button>
       {errorMessage && (
         <p className="text-sm text-red-600" role="alert">

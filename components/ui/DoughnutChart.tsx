@@ -15,7 +15,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 interface DoughnutChartProps {
   accounts: {
     name: string;
-    balance: number;
+    balance: number | null;
   }[];
 }
 
@@ -39,7 +39,11 @@ const formatCurrency = (amount: number) =>
 
 const DoughnutChart = ({ accounts }: DoughnutChartProps) => {
   const chartAccounts = useMemo(
-    () => accounts.filter((account) => account.balance > 0),
+    () =>
+      accounts.filter(
+        (account): account is { name: string; balance: number } =>
+          account.balance !== null && account.balance > 0,
+      ),
     [accounts],
   );
 
@@ -104,7 +108,7 @@ const DoughnutChart = ({ accounts }: DoughnutChartProps) => {
     return (
       <div className="flex h-48 w-full items-center justify-center rounded-2xl bg-gray-50 px-4 text-center">
         <p className="max-w-48 text-sm leading-6 text-gray-500">
-          Add an account to see your balance breakdown.
+          Link a bank account to see your balance breakdown.
         </p>
       </div>
     );

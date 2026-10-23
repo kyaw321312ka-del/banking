@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   AppwriteException,
   ID,
+  Models,
   Permission,
   Role,
 } from "node-appwrite";
@@ -200,6 +201,67 @@ export const logoutAccount = async () => {
   redirect("/sign-in");
 };
 
+const bankRowIdSchema = z.string().trim().min(1);
+
+interface LinkedBankRow extends Models.Row {
+  userId: string;
+  accessToken: string;
+}
+
+export async function createBankUpdateLinkToken(bankRowId: string) {
+  const validatedRowId = bankRowIdSchema.parse(bankRowId);
+  const { account } = await createSessionClient();
+  const user = await account.get();
+  const { tables } = await createAdminClient();
+  const row = await tables.getRow<LinkedBankRow>({
+    databaseId: getRequiredEnv("APPWRITE_Database_ID"),
+    tableId: getRequiredEnv("APPWRITE_Bank_Table_ID"),
+    rowId: validatedRowId,
+  });
+
+  if (row.userId !== user.$id) {
+    throw new Error("You are not authorized to update this bank connection.");
+  }
+
+  try {
+    const response = await plaidClient.linkTokenCreate({
+      user: { client_user_id: user.$id },
+      client_name: "NYX Banking",
+      access_token: row.accessToken,
+      additional_consented_products: [Products.Transactions],
+      language: "en",
+      country_codes: [CountryCode.Us],
+    });
+
+    return response.data.link_token;
+  } catch (error) {
+    const plaidError = error as {
+      response?: {
+        status?: number;
+        data?: {
+          error_code?: string;
+          error_message?: string;
+          request_id?: string;
+        };
+      };
+    };
+    const details = plaidError.response?.data;
+
+    console.error("Plaid update Link token creation failed:", {
+      status: plaidError.response?.status,
+      errorCode: details?.error_code,
+      errorMessage: details?.error_message,
+      requestId: details?.request_id,
+    });
+
+    throw new Error(
+      details?.error_code
+        ? `Plaid couldn't prepare this bank connection for update (${details.error_code}).`
+        : "Plaid couldn't prepare this bank connection for update. Please try again.",
+    );
+  }
+}
+
 const exchangePlaidInputSchema = z.object({
   publicToken: z.string().min(1),
   accountId: z.string().min(1),
@@ -213,7 +275,7 @@ export async function createLinkToken() {
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: user.$id },
       client_name: "NYX Banking",
-      products: [Products.Auth],
+      products: [Products.Auth, Products.Transactions],
       language: "en",
       country_codes: [CountryCode.Us],
       ...(process.env.PLAID_REDIRECT_URI
