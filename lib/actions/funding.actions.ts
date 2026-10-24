@@ -14,8 +14,6 @@ import {
   createDwollaCustomer,
   createFundingSource,
   DwollaDuplicateFundingSourceError,
-  getDwollaCustomerBalance,
-  type DwollaBalanceResult,
 } from "./dwolla.actions";
 
 const getRequiredEnv = (name: string) => {
@@ -199,23 +197,6 @@ interface UserProfileRow extends Models.Row {
   dateOfBirth: string;
   dwollaCustomerUrl: string;
   dwollaCustomerId: string;
-}
-
-export async function getCurrentUserDwollaBalance(): Promise<DwollaBalanceResult> {
-  const { account } = await createSessionClient();
-  const user = await account.get();
-  const { tables, profileTable } = await createAdminClient();
-  const profile = await tables.getRow<UserProfileRow>({
-    ...profileTable,
-    rowId: user.$id,
-  });
-  const customerUrl = profile.dwollaCustomerUrl?.trim();
-
-  if (!customerUrl) {
-    return { status: "not_configured" };
-  }
-
-  return getDwollaCustomerBalance(customerUrl);
 }
 
 export async function setupDwollaFundingSource(

@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import DwollaBalanceTransferFields from "@/components/ui/DwollaBalanceTransferFields";
 import PaymentTransferFields from "@/components/ui/PaymentTransferFields";
 import { getBanks } from "@/lib/actions/bank.actions";
-import { getCurrentUserDwollaBalance } from "@/lib/actions/funding.actions";
 import { getLoggedInUser } from "@/lib/auth";
 
 export default function PaymentTransferForm() {
@@ -18,12 +16,7 @@ export default function PaymentTransferForm() {
 async function PaymentTransferContent() {
   await connection();
   const user = await getLoggedInUser();
-  const [banks, dwollaBalance] = user
-    ? await Promise.all([
-        getBanks({ userId: user.$id }),
-        getCurrentUserDwollaBalance(),
-      ])
-    : [[], { status: "not_configured" as const }];
+  const banks = user ? await getBanks({ userId: user.$id }) : [];
   const accounts = banks.flatMap((bank) =>
     bank.accounts.map((account) => ({
       id: account.account_id,
@@ -47,16 +40,6 @@ async function PaymentTransferContent() {
           transfer
         </p>
       </header>
-
-      <DwollaBalanceTransferFields
-        balance={dwollaBalance}
-        destinations={accounts.map((account) => ({
-          id: account.bankRowId,
-          label: account.label,
-          fundingSourceReady: account.fundingSourceReady,
-          fundingSourceConflict: account.fundingSourceConflict,
-        }))}
-      />
 
       <div className="pt-6">
         <h2 className="mb-1 text-lg font-semibold text-gray-900">

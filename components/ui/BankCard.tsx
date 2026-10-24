@@ -19,6 +19,7 @@ interface Bank {
   currency?: string;
   accountLabel?: string;
   accountIds?: { id: string; name: string; shareableId?: string }[];
+  topCategories?: { name: string; amount: number; percentage: number }[];
   variant?: "purple" | "blue" | "dark";
 }
 
@@ -230,11 +231,57 @@ const BankCard = ({ banks }: BankCardProps) => {
     );
   };
 
+  const renderTopCategories = (bank: Bank) => {
+    return (
+      <section
+        className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3"
+        aria-label={`Top spending categories for ${bank.name}`}
+      >
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Spending categories · last 30 days
+        </h3>
+        {bank.topCategories?.length ? (
+          <ul className="space-y-3">
+            {bank.topCategories.map((category) => (
+              <li key={category.name} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate text-gray-700">{category.name}</span>
+                  <span className="shrink-0 text-right font-semibold tabular-nums text-gray-900">
+                    {category.percentage.toFixed(1)}% ·{" "}
+                    {formatCurrency(category.amount, bank.currency)}
+                  </span>
+                </div>
+                <div
+                  className="h-1.5 overflow-hidden rounded-full bg-gray-200"
+                  role="progressbar"
+                  aria-label={`${category.name} share of categorized spending`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(category.percentage)}
+                >
+                  <div
+                    className="h-full rounded-full bg-blue-500"
+                    style={{ width: `${Math.min(category.percentage, 100)}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500">
+            No categorized spending in the last 30 days.
+          </p>
+        )}
+      </section>
+    );
+  };
+
   if (banks.length === 1) {
     return (
       <div className="mx-auto w-full max-w-[340px]">
         {renderCard(banks[0], 0)}
         {renderAccountIds(banks[0])}
+        {renderTopCategories(banks[0])}
       </div>
     );
   }
@@ -313,6 +360,9 @@ const BankCard = ({ banks }: BankCardProps) => {
           Card {activeIndex + 1} of {banks.length}
         </p>
       )}
+      <div className="mx-auto w-full max-w-[340px]">
+        {renderTopCategories(activeBank)}
+      </div>
     </div>
   );
 };

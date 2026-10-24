@@ -6,8 +6,6 @@ import RecentTransactions from "@/components/ui/RecentTransactions";
 import TotalBalanceBox from "@/components/ui/TotalBalanceBox";
 import RightSidebar from "@/components/ui/RightSidebar";
 import { getAccounts, getBanks, getTransactions } from "@/lib/actions/bank.actions";
-import { getCurrentUserDwollaBalance } from "@/lib/actions/funding.actions";
-import type { DwollaBalanceResult } from "@/lib/actions/dwolla.actions";
 import { getLoggedInUser } from "@/lib/auth";
 import { getUserNameParts } from "@/lib/utils";
 
@@ -24,20 +22,14 @@ const Dashboard = async () => {
     ? getUserNameParts(sessionUser.name)
     : null;
 
-  const [connectedAccounts, transactionResult, connectedBanks, dwollaBalance] =
+  const [connectedAccounts, transactionResult, connectedBanks] =
     sessionUser
       ? await Promise.all([
           getAccounts(),
           getTransactions(),
           getBanks({ userId: sessionUser.$id }),
-          getCurrentUserDwollaBalance(),
         ])
-      : [
-          [],
-          { transactions: [], errors: [] },
-          [],
-          { status: "not_configured" as const },
-        ];
+      : [[], { transactions: [], errors: [] }, []];
   const plaidTransactions = transactionResult.transactions;
 
   const accounts = connectedAccounts.map(({ account }) => ({
@@ -95,7 +87,6 @@ const Dashboard = async () => {
             accounts={accounts}
             totalBanks={banks.length}
             totalCurrentBalance={totalCurrentBalance}
-            dwollaBalance={dwollaBalance as DwollaBalanceResult}
           />
 
           <RecentTransactions

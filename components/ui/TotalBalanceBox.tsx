@@ -1,5 +1,4 @@
 import { Wallet, ArrowUpRight, Landmark } from "lucide-react";
-import type { DwollaBalanceResult } from "@/lib/actions/dwolla.actions";
 import AnimatedCounter from "./AnimatedCounter";
 import DoughnutChart from "./DoughnutChart";
 
@@ -7,20 +6,12 @@ interface TotalBalanceBoxProps {
   accounts: { id: string; name: string; balance: number | null }[];
   totalBanks: number;
   totalCurrentBalance: number | null;
-  dwollaBalance: DwollaBalanceResult;
 }
-
-const formatUsd = (amount: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
 
 const TotalBalanceBox = ({
   accounts,
   totalBanks,
   totalCurrentBalance,
-  dwollaBalance,
 }: TotalBalanceBoxProps) => {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-6">
@@ -78,42 +69,6 @@ const TotalBalanceBox = ({
           <div className="flex h-40 w-40 shrink-0 items-center justify-center">
             <DoughnutChart accounts={accounts} />
           </div>
-        </div>
-
-        <div className="relative mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                Dwolla Balance
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Separate from linked bank balances
-              </p>
-            </div>
-            {dwollaBalance.status === "available" ? (
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">
-                  {formatUsd(dwollaBalance.balance.available)}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Available of {formatUsd(dwollaBalance.balance.total)}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm font-semibold text-gray-600">
-                {dwollaBalance.status === "not_configured"
-                  ? "Not set up"
-                  : dwollaBalance.status === "not_available"
-                    ? "Not available"
-                    : "Unable to load"}
-              </p>
-            )}
-          </div>
-          {dwollaBalance.status === "error" && (
-            <p className="mt-3 text-xs text-amber-800" role="status">
-              {dwollaBalance.message}
-            </p>
-          )}
         </div>
 
         {/* Account statistics */}

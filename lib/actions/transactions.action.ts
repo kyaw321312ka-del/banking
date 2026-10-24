@@ -10,10 +10,7 @@ import {
 import { z } from "zod";
 
 import { createAdminClient, createSessionClient } from "../appwrite";
-import {
-  createDwollaBalanceTransfer,
-  createTransfer,
-} from "./dwolla.actions";
+import { createTransfer } from "./dwolla.actions";
 
 const getRequiredEnv = (name: string) => {
   const value = process.env[name];
@@ -40,21 +37,6 @@ const createTransactionSchema = z.object({
   note: z.string().trim().max(100).optional(),
 });
 
-const createDwollaBalanceTransactionSchema = z.object({
-  destinationBankRowId: z.string().trim().min(1).max(100),
-  idempotencyKey: z.string().uuid(),
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{1,2})?$/, "Enter a valid amount with up to two decimals.")
-    .refine((amount) => Number(amount) > 0, "Amount must be greater than zero.")
-    .refine(
-      (amount) => Number(amount) <= 1_000_000,
-      "Amount cannot exceed $1,000,000.",
-    ),
-  note: z.string().trim().max(100).optional(),
-});
-
 export type CreateTransactionProps = z.infer<
   typeof createTransactionSchema
 >;
@@ -64,137 +46,6 @@ interface BankRow extends Models.Row {
   accountId: string;
   shareabaleId: string;
   fundingSourceUrl: string;
-}
-
-interface UserProfileRow extends Models.Row {
-  dwollaCustomerUrl: string;
-}
-
-export async function createDwollaBalanceTransaction(input: {
-  destinationBankRowId: string;
-  idempotencyKey: string;
-  amount: string;
-  note?: string;
-}) {
-  const values = createDwollaBalanceTransactionSchema.parse(input);
-  const { account } = await createSessionClient();
-  const sender = await account.get();
-  const { tables, profileTable } = await createAdminClient();
-  const databaseId = getRequiredEnv("APPWRITE_Database_ID");
-  const bankTableId = getRequiredEnv("APPWRITE_Bank_Table_ID");
-  const transactionTableId = getRequiredEnv("APPWRITE_Transaction_Table_ID");
-
-  try {
-    await tables.getRow({
-      databaseId,
-      tableId: transactionTableId,
-      rowId: values.idempotencyKey,
-    });
-    throw new Error(
-      "This transfer request was already submitted. Check your transaction history before trying again.",
-    );
-  } catch (error) {
-    if (
-      !(error instanceof AppwriteException) ||
-      error.code !== 404
-    ) {
-      throw error;
-    }
-  }
-
-  const [profile, destinationBank] = await Promise.all([
-    tables.getRow<UserProfileRow>({
-      ...profileTable,
-      rowId: sender.$id,
-    }),
-    tables.getRow<BankRow>({
-      databaseId,
-      tableId: bankTableId,
-      rowId: values.destinationBankRowId,
-    }),
-  ]);
-
-  if (destinationBank.userId !== sender.$id) {
-    throw new Error("You can only transfer to one of your own bank accounts.");
-  }
-  if (!destinationBank.fundingSourceUrl) {
-    throw new Error(
-      "The selected destination bank is not set up for Dwolla transfers yet.",
-    );
-  }
-  if (!profile.dwollaCustomerUrl?.trim()) {
-    throw new Error("Your Dwolla customer account is not set up yet.");
-  }
-
-  const matchingSources = await tables.listRows<BankRow>({
-    databaseId,
-    tableId: bankTableId,
-    queries: [
-      Query.equal("userId", sender.$id),
-      Query.equal("fundingSourceUrl", destinationBank.fundingSourceUrl),
-      Query.limit(2),
-    ],
-    total: false,
-    ttl: 0,
-  });
-  if (
-    matchingSources.rows.some((row) => row.$id !== destinationBank.$id)
-  ) {
-    throw new Error(
-      "This destination shares a Dwolla funding source with another linked account. Resolve the account mapping in My Banks before transferring.",
-    );
-  }
-
-  const amount = Number(values.amount).toFixed(2);
-  const { transferUrl } = await createDwollaBalanceTransfer({
-    customerUrl: profile.dwollaCustomerUrl,
-    destinationFundingSourceUrl: destinationBank.fundingSourceUrl,
-    amount,
-    idempotencyKey: values.idempotencyKey,
-  });
-
-  try {
-    const transaction = await tables.createRow({
-      databaseId,
-      tableId: transactionTableId,
-      rowId: values.idempotencyKey,
-      data: {
-        name: values.note || "Transfer from Dwolla Balance",
-        amount,
-        channel: "online",
-        category: "Transfer",
-        senderId: sender.$id,
-        recieverId: sender.$id,
-        senderBankId: "Dwolla Balance",
-        receiverBankId: destinationBank.$id,
-        email: sender.email.toLowerCase(),
-      },
-      permissions: [Permission.read(Role.user(sender.$id))],
-    });
-
-    return {
-      success: true as const,
-      transactionId: transaction.$id,
-      message: "Transfer initiated from your Dwolla Balance to your bank.",
-    };
-  } catch (error) {
-    if (error instanceof AppwriteException && error.code === 409) {
-      return {
-        success: true as const,
-        transactionId: values.idempotencyKey,
-        message: "Transfer initiated from your Dwolla Balance to your bank.",
-      };
-    }
-
-    console.error("Dwolla Balance transfer started but its record failed:", {
-      error,
-      transferUrl,
-      transactionId: values.idempotencyKey,
-    });
-    throw new Error(
-      "The transfer was initiated, but its history record could not be saved. Do not submit again; contact support with the transfer time.",
-    );
-  }
 }
 
 export async function createTransaction(input: CreateTransactionProps) {

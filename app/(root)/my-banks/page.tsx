@@ -6,7 +6,7 @@ import BankCard from "@/components/ui/BankCard";
 import FundingSourceSetup from "@/components/ui/FundingSourceSetup";
 import PlaidLink from "@/components/ui/PlaidLink";
 import ResolveFundingSourceConflict from "@/components/ui/ResolveFundingSourceConflict";
-import { getBanks } from "@/lib/actions/bank.actions";
+import { getBanks, getTransactions } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/auth";
 
 const formatCurrency = (amount: number, currency = "USD") =>
@@ -29,7 +29,53 @@ async function BanksContent() {
 
   if (!user) return null;
 
-  const banks = await getBanks({ userId: user.$id });
+  const [banks, transactionResult] = await Promise.all([
+    getBanks({ userId: user.$id }),
+    getTransactions(),
+  ]);
+  const topCategoriesByBank = new Map<
+    string,
+    { name: string; amount: number; percentage: number }[]
+  >();
+
+  for (const bank of banks) {
+    const accountBankIds = new Set(
+      bank.accounts.map((account) => account.bankRowId),
+    );
+    const totals = new Map<string, number>();
+
+    for (const transaction of transactionResult.transactions) {
+      if (
+        !("bankId" in transaction) ||
+        !accountBankIds.has(transaction.bankId) ||
+        transaction.amount <= 0
+      ) {
+        continue;
+      }
+
+      const category =
+        transaction.personal_finance_category?.primary ??
+        transaction.category?.[0];
+      if (category) {
+        totals.set(category, (totals.get(category) ?? 0) + transaction.amount);
+      }
+    }
+
+    const totalSpending = [...totals.values()].reduce(
+      (total, amount) => total + amount,
+      0,
+    );
+    topCategoriesByBank.set(
+      bank.id,
+      [...totals]
+        .map(([name, amount]) => ({
+          name,
+          amount,
+          percentage: totalSpending > 0 ? (amount / totalSpending) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount),
+    );
+  }
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6">
@@ -88,6 +134,7 @@ async function BanksContent() {
                       balance,
                       currency: currency ?? undefined,
                       accountLabel,
+                      topCategories: topCategoriesByBank.get(bank.id) ?? [],
                       accountIds: bank.accounts.map((account) => ({
                         id: account.account_id,
                         name: account.name,
