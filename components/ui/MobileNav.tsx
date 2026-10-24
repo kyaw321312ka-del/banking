@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { logoutAccount } from "@/lib/actions/user.actions";
+import PlaidLink from "./PlaidLink";
 import logo from "../icons/logo.png";
 
 const navigation = [
@@ -35,9 +36,10 @@ interface MobileNavProps {
     firstName: string;
     lastName: string;
   } | null;
+  email: string;
 }
 
-const MobileNav = ({ user }: MobileNavProps) => {
+const MobileNav = ({ user, email }: MobileNavProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
@@ -161,6 +163,10 @@ const MobileNav = ({ user }: MobileNavProps) => {
                   </Link>
                 );
               })}
+            </div>
+
+            <div className="mt-5">
+              <PlaidLink user={{ email }} />
             </div>
 
             <div className="mt-5 border-t border-gray-100 pt-4">

@@ -62,7 +62,6 @@ const signUpSchema = z.object({
   lastName: required("Last name"),
   address: required("Address"),
   city: required("City"),
-  state: required("State"),
   postalCode: z
     .string()
     .trim()
@@ -408,7 +407,6 @@ const SignUpFields = () => {
       lastName: "",
       address: "",
       city: "",
-      state: "",
       postalCode: "",
       dateOfBirth: "",
       email: "",
@@ -437,7 +435,6 @@ const SignUpFields = () => {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <CustomInput<SignUpValues> name="city" label="City" placeholder="City" autoComplete="address-level2" register={register} error={errors.city?.message} />
-          <CustomInput<SignUpValues> name="state" label="State / Region" placeholder="State" autoComplete="address-level1" register={register} error={errors.state?.message} />
           <CustomInput<SignUpValues> name="postalCode" label="Postal code" placeholder="Postal code" autoComplete="postal-code" register={register} error={errors.postalCode?.message} />
         </div>
 

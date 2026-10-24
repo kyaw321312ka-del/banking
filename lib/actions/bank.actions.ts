@@ -50,7 +50,23 @@ async function getCurrentUserBankRows(): Promise<BankRow[]> {
     if (page.rows.length < pageSize) break;
   }
 
-  return rows;
+  return Promise.all(
+    rows.map(async (row) => {
+      if (row.shareabaleId?.trim()) {
+        return row;
+      }
+
+      const shareabaleId = row.$id;
+      await tables.updateRow({
+        databaseId,
+        tableId,
+        rowId: row.$id,
+        data: { shareabaleId },
+      });
+
+      return { ...row, shareabaleId };
+    }),
+  );
 }
 
 const getInstitutionInputSchema = z.string().trim().min(1);
@@ -257,8 +273,16 @@ export async function getTransactions(dateRange?: {
         const requiresReconnect =
           details.errorCode === "ITEM_LOGIN_REQUIRED";
         const productNotReady = details.errorCode === "PRODUCT_NOT_READY";
+        const dnsUnavailable =
+          details.axiosCode === "ENOTFOUND" ||
+          details.axiosCode === "EAI_AGAIN";
 
-        if (!requiresConsent && !requiresReconnect && !productNotReady) {
+        if (
+          !requiresConsent &&
+          !requiresReconnect &&
+          !productNotReady &&
+          !dnsUnavailable
+        ) {
           console.error(
             "Plaid transaction retrieval failed:",
             JSON.stringify(details),
@@ -277,9 +301,11 @@ export async function getTransactions(dateRange?: {
                 ? "Plaid has not enabled transaction data for this bank yet. Open My Banks and choose Enable transactions for the linked bank, then try again."
                 : requiresReconnect
                   ? "This bank needs you to reconnect. Open My Banks and refresh its connection, then try again."
-                  : `Plaid couldn't load transactions for one of your linked banks${
-                      details.status ? ` (HTTP ${details.status})` : ""
-                    }. ${
+                    : dnsUnavailable
+                      ? "The server temporarily could not resolve Plaid's hostname. Check your server's DNS and internet connection, then retry. If this continues, contact your hosting provider."
+                    : `Plaid couldn't load transactions for one of your linked banks${
+                        details.status ? ` (HTTP ${details.status})` : ""
+                      }. ${
                       details.errorMessage !== "Unknown Plaid error"
                         ? details.errorMessage
                         : "See server logs for the Plaid error details."
@@ -312,6 +338,15 @@ export async function getBanks(input: { userId: string }) {
   }
 
   const bankRows = await getCurrentUserBankRows();
+  const rowsByFundingSource = new Map<string, Set<string>>();
+  for (const row of bankRows) {
+    if (!row.fundingSourceUrl) continue;
+    const accountIds =
+      rowsByFundingSource.get(row.fundingSourceUrl) ?? new Set<string>();
+    accountIds.add(row.accountId);
+    rowsByFundingSource.set(row.fundingSourceUrl, accountIds);
+  }
+
   const banksByInstitution = new Map<string, Map<string, BankRow[]>>();
 
   for (const bank of bankRows) {
@@ -354,7 +389,31 @@ export async function getBanks(input: { userId: string }) {
               );
             }
 
-            return accounts;
+            return accounts.map((account) => {
+              const bankRow = rows.find(
+                (row) => row.accountId === account.account_id,
+              );
+
+              if (!bankRow) {
+                throw new Error(
+                  `Plaid account ${account.account_id} was not found in its linked bank records.`,
+                );
+              }
+
+              return {
+                ...account,
+                bankRowId: bankRow.$id,
+                bankShareableId: bankRow.shareabaleId,
+                fundingSourceConflict:
+                  Boolean(bankRow.fundingSourceUrl) &&
+                  (rowsByFundingSource.get(bankRow.fundingSourceUrl)?.size ??
+                    0) > 1,
+                fundingSourceReady:
+                  Boolean(bankRow.fundingSourceUrl) &&
+                  (rowsByFundingSource.get(bankRow.fundingSourceUrl)?.size ??
+                    0) <= 1,
+              };
+            });
           }),
         ),
       ]);

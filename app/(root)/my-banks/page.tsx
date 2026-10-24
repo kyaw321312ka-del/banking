@@ -2,7 +2,10 @@ import { Suspense } from "react";
 import { Landmark, Wallet } from "lucide-react";
 import { connection } from "next/server";
 
+import BankCard from "@/components/ui/BankCard";
+import FundingSourceSetup from "@/components/ui/FundingSourceSetup";
 import PlaidLink from "@/components/ui/PlaidLink";
+import ResolveFundingSourceConflict from "@/components/ui/ResolveFundingSourceConflict";
 import { getBanks } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/auth";
 
@@ -40,6 +43,64 @@ async function BanksContent() {
         </div>
         <PlaidLink user={{ email: user.email }} variant="ghost" />
       </header>
+
+      {banks.length > 0 && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 font-semibold text-gray-900">Your Bank Cards</h2>
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {banks.map((bank) => {
+              const currency =
+                bank.accounts[0]?.balances.iso_currency_code ?? null;
+              const hasOneCurrency =
+                currency !== null &&
+                bank.accounts.every(
+                  (account) =>
+                    account.balances.iso_currency_code === currency,
+                );
+              const hasAllBalances = bank.accounts.every(
+                (account) => account.balances.current !== null,
+              );
+              const balance =
+                bank.accounts.length > 0 &&
+                hasAllBalances &&
+                hasOneCurrency
+                  ? bank.accounts.reduce(
+                      (total, account) =>
+                        total + (account.balances.current ?? 0),
+                      0,
+                    )
+                  : null;
+              const accountLabel =
+                bank.accounts.length === 1
+                  ? bank.accounts[0].mask
+                    ? `Account •••• ${bank.accounts[0].mask}`
+                    : "Account number unavailable"
+                  : `${bank.accounts.length} linked accounts`;
+
+              return (
+                <BankCard
+                  key={bank.id}
+                  banks={[
+                    {
+                      id: bank.id,
+                      name: bank.name,
+                      cardholder: user.name,
+                      balance,
+                      currency: currency ?? undefined,
+                      accountLabel,
+                      accountIds: bank.accounts.map((account) => ({
+                        id: account.account_id,
+                        name: account.name,
+                        shareableId: account.bankShareableId,
+                      })),
+                    },
+                  ]}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {banks.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
@@ -105,14 +166,43 @@ async function BanksContent() {
                         </p>
                       </div>
                     </div>
-                    <p className="text-sm font-semibold tabular-nums text-gray-900">
-                      {account.balances.current === null
-                        ? "Balance unavailable"
-                        : formatCurrency(
-                            account.balances.current,
-                            account.balances.iso_currency_code ?? "USD",
-                          )}
-                    </p>
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <p className="text-sm font-semibold tabular-nums text-gray-900">
+                        {account.balances.current === null
+                          ? "Balance unavailable"
+                          : formatCurrency(
+                              account.balances.current,
+                              account.balances.iso_currency_code ?? "USD",
+                            )}
+                      </p>
+                      {account.fundingSourceConflict ? (
+                        <span className="text-xs font-medium text-amber-700">
+                          Transfer setup needs review
+                        </span>
+                      ) : account.fundingSourceReady ? (
+                        <span className="text-xs font-medium text-emerald-700">
+                          Transfers ready
+                        </span>
+                      ) : (
+                        <FundingSourceSetup bankRowId={account.bankRowId} />
+                      )}
+                    </div>
+                    {account.fundingSourceConflict && (
+                      <div className="w-full space-y-2 text-right">
+                        <p className="text-xs text-amber-700">
+                          Multiple linked accounts share one Dwolla funding
+                          source. Confirm which account matches in Dwolla
+                          before resolving.
+                        </p>
+                        <div className="flex justify-end">
+                          <ResolveFundingSourceConflict
+                            bankRowId={account.bankRowId}
+                            accountName={account.name}
+                            accountMask={account.mask}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

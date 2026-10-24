@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   Wallet,
   ArrowLeftRight,
-  CreditCard,
-  ChartNoAxesCombined,
   Settings,
   CircleHelp,
   LogOut,
@@ -16,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { logoutAccount } from "@/lib/actions/user.actions";
+import PlaidLink from "./PlaidLink";
 import logo from "../icons/logo.png";
 
 type SidebarProps = {
@@ -23,6 +22,7 @@ type SidebarProps = {
     firstName: string;
     lastName: string;
   } | null;
+  email: string;
 };
 
 const navigation = [
@@ -37,7 +37,7 @@ const isRouteActive = (pathname: string, href: string) =>
     ? pathname === "/"
     : pathname === href || pathname.startsWith(`${href}/`);
 
-const Sidebar = ({ user }: SidebarProps) => {
+const Sidebar = ({ user, email }: SidebarProps) => {
   const pathname = usePathname();
 
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "";
@@ -187,6 +187,8 @@ const Sidebar = ({ user }: SidebarProps) => {
 
       {/* Bottom section */}
       <div className="mt-7 shrink-0 border-t border-white/[0.08] pt-5">
+        <PlaidLink user={{ email }} />
+
         <div className="rounded-xl border border-blue-400/10 bg-gradient-to-br from-blue-600/15 to-cyan-500/[0.06] p-3">
           <p className="text-sm font-semibold text-white">
             Banking made easier

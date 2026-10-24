@@ -4,16 +4,14 @@ import {
   Plus,
 } from "lucide-react";
 import BankCard from "./BankCard";
-import RecentTransactions from "./RecentTransactions";
 
 interface RightSidebarProps {
   user: { firstName: string; lastName: string } | null;
-  transactions: React.ComponentProps<typeof RecentTransactions>["transactions"];
-  transactionErrors?: string[];
   banks: {
     id: string;
     name: string;
     balance?: number | null;
+    currency?: string;
     cardholder?: string;
     accountLabel?: string;
     variant?: "purple" | "blue" | "dark";
@@ -22,9 +20,7 @@ interface RightSidebarProps {
 
 const RightSidebar = ({
   user,
-  transactions,
   banks,
-  transactionErrors = [],
 }: RightSidebarProps) => {
   const initials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
@@ -101,10 +97,6 @@ const RightSidebar = ({
   />
 </section>
 
-      <RecentTransactions
-        transactions={transactions}
-        errors={transactionErrors}
-      />
     </aside>
   );
 };

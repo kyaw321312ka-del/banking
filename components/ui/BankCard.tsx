@@ -2,14 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, Wifi } from "lucide-react";
+import {
+  Check,
+  Clipboard,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Wifi,
+} from "lucide-react";
 
 interface Bank {
   id: string;
   name: string;
   cardholder?: string;
   balance?: number | null;
+  currency?: string;
   accountLabel?: string;
+  accountIds?: { id: string; name: string; shareableId?: string }[];
   variant?: "purple" | "blue" | "dark";
 }
 
@@ -23,14 +32,18 @@ const cardColors = {
   dark: "from-slate-700 via-slate-800 to-slate-900",
 };
 
-const formatCurrency = (amount: number) =>
+const formatCurrency = (amount: number, currency = "USD") =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
   }).format(amount);
 
 const BankCard = ({ banks }: BankCardProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
+  const [copyErrorAccountId, setCopyErrorAccountId] = useState<string | null>(
+    null,
+  );
 
   const showPrevious = () => {
     setActiveIndex((current) => (current - 1 + banks.length) % banks.length);
@@ -92,7 +105,7 @@ const BankCard = ({ banks }: BankCardProps) => {
         <div className="absolute inset-x-4 bottom-4">
           {bank.balance != null && (
             <p className="mb-2 text-lg font-bold tabular-nums sm:text-xl">
-              {formatCurrency(bank.balance)}
+              {formatCurrency(bank.balance, bank.currency)}
             </p>
           )}
 
@@ -111,6 +124,120 @@ const BankCard = ({ banks }: BankCardProps) => {
       </div>
     );
   };
+
+  const renderAccountIds = (bank: Bank) => {
+    if (!bank.accountIds?.length) return null;
+
+    return (
+      <div className="mt-3 space-y-2">
+        {bank.accountIds.map((account) => (
+          <div key={account.id} className="space-y-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-gray-700">
+                  {account.name}
+                </p>
+                <p className="font-mono text-xs tracking-wider text-gray-500">
+                  ••••••••{account.id.slice(-4)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setCopyErrorAccountId(null);
+                  try {
+                    await navigator.clipboard.writeText(account.id);
+                    setCopiedAccountId(account.id);
+                    window.setTimeout(() => setCopiedAccountId(null), 2000);
+                  } catch (error) {
+                    console.error("Failed to copy Plaid account ID:", error);
+                    setCopyErrorAccountId(account.id);
+                  }
+                }}
+                aria-label={`Copy Plaid account ID for ${account.name}`}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                {copiedAccountId === account.id ? (
+                  <>
+                    <Check size={14} />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Clipboard size={14} />
+                    Copy ID
+                  </>
+                )}
+              </button>
+            </div>
+            {copyErrorAccountId === account.id && (
+              <p className="px-1 text-xs text-red-600" role="alert">
+                Couldn’t copy the ID. Check clipboard permissions and try
+                again.
+              </p>
+            )}
+            {account.shareableId && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-700">
+                    Bank shareable ID
+                  </p>
+                  <p className="truncate font-mono text-xs tracking-wider text-gray-600">
+                    {account.shareableId}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const copyKey = `shareable:${account.id}`;
+                    setCopyErrorAccountId(null);
+                    try {
+                      await navigator.clipboard.writeText(account.shareableId!);
+                      setCopiedAccountId(copyKey);
+                      window.setTimeout(() => setCopiedAccountId(null), 2000);
+                    } catch (error) {
+                      console.error("Failed to copy bank shareable ID:", error);
+                      setCopyErrorAccountId(copyKey);
+                    }
+                  }}
+                  aria-label={`Copy bank shareable ID for ${account.name}`}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {copiedAccountId === `shareable:${account.id}` ? (
+                    <>
+                      <Check size={14} />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Clipboard size={14} />
+                      Copy ID
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            {account.shareableId &&
+              copyErrorAccountId === `shareable:${account.id}` && (
+                <p className="px-1 text-xs text-red-600" role="alert">
+                  Couldn’t copy the ID. Check clipboard permissions and try
+                  again.
+                </p>
+              )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (banks.length === 1) {
+    return (
+      <div className="mx-auto w-full max-w-[340px]">
+        {renderCard(banks[0], 0)}
+        {renderAccountIds(banks[0])}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -181,9 +308,11 @@ const BankCard = ({ banks }: BankCardProps) => {
         </div>
       )}
 
-      <p className="mt-2 text-center text-xs text-gray-400">
-        Card {activeIndex + 1} of {banks.length}
-      </p>
+      {banks.length > 1 && (
+        <p className="mt-2 text-center text-xs text-gray-400">
+          Card {activeIndex + 1} of {banks.length}
+        </p>
+      )}
     </div>
   );
 };

@@ -40,9 +40,9 @@ async function AuthenticatedLayout({
   return (
     <>
       <div className="hidden lg:block">
-        <Sidebar user={user} />
+        <Sidebar user={user} email={sessionUser.email} />
       </div>
-      <MobileNav user={user} />
+      <MobileNav user={user} email={sessionUser.email} />
       <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
         {children}
       </main>

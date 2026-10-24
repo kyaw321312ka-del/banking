@@ -35,7 +35,6 @@ const signUpSchema = z.object({
   lastName: z.string().trim().min(1).max(128),
   address: z.string().trim().min(1),
   city: z.string().trim().min(1),
-  state: z.string().trim().min(1),
   postalCode: z.string().trim().min(1),
   dateOfBirth: z.string().min(1),
 });

@@ -2,10 +2,12 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import HeaderBox from "@/components/ui/HeaderBox";
-import PlaidLink from "@/components/ui/PlaidLink";
+import RecentTransactions from "@/components/ui/RecentTransactions";
 import TotalBalanceBox from "@/components/ui/TotalBalanceBox";
 import RightSidebar from "@/components/ui/RightSidebar";
 import { getAccounts, getBanks, getTransactions } from "@/lib/actions/bank.actions";
+import { getCurrentUserDwollaBalance } from "@/lib/actions/funding.actions";
+import type { DwollaBalanceResult } from "@/lib/actions/dwolla.actions";
 import { getLoggedInUser } from "@/lib/auth";
 import { getUserNameParts } from "@/lib/utils";
 
@@ -22,14 +24,20 @@ const Dashboard = async () => {
     ? getUserNameParts(sessionUser.name)
     : null;
 
-  const [connectedAccounts, transactionResult, connectedBanks] =
+  const [connectedAccounts, transactionResult, connectedBanks, dwollaBalance] =
     sessionUser
       ? await Promise.all([
           getAccounts(),
           getTransactions(),
           getBanks({ userId: sessionUser.$id }),
+          getCurrentUserDwollaBalance(),
         ])
-      : [[], { transactions: [], errors: [] }, []];
+      : [
+          [],
+          { transactions: [], errors: [] },
+          [],
+          { status: "not_configured" as const },
+        ];
   const plaidTransactions = transactionResult.transactions;
 
   const accounts = connectedAccounts.map(({ account }) => ({
@@ -45,6 +53,8 @@ const Dashboard = async () => {
   const banks = connectedBanks.map((bank) => ({
     id: bank.id,
     name: bank.name,
+    currency:
+      bank.accounts[0]?.balances.iso_currency_code ?? "USD",
     balance:
       bank.accounts.length > 0 &&
       bank.accounts.every(
@@ -81,14 +91,21 @@ const Dashboard = async () => {
             subtext="Manage your finances with ease."
           />
 
-          {sessionUser && (
-            <PlaidLink user={{ email: sessionUser.email }} variant="ghost" />
-          )}
-
           <TotalBalanceBox
             accounts={accounts}
             totalBanks={banks.length}
             totalCurrentBalance={totalCurrentBalance}
+            dwollaBalance={dwollaBalance as DwollaBalanceResult}
+          />
+
+          <RecentTransactions
+            transactions={transactions}
+            errors={transactionResult.errors.map(
+              ({ message, code, requestId }) =>
+                `${message}${code !== "UNKNOWN" ? ` Plaid code: ${code}.` : ""}${
+                  requestId ? ` Request ID: ${requestId}.` : ""
+                }`,
+            )}
           />
 
           {/* Add other dashboard cards here */}
@@ -98,14 +115,7 @@ const Dashboard = async () => {
         <div className="min-w-0">
           <RightSidebar
             user={loggedInUser}
-            transactions={transactions}
             banks={banks}
-            transactionErrors={transactionResult.errors.map(
-              ({ message, code, requestId }) =>
-                `${message}${code !== "UNKNOWN" ? ` Plaid code: ${code}.` : ""}${
-                  requestId ? ` Request ID: ${requestId}.` : ""
-                }`,
-            )}
           />
         </div>
       </div>
