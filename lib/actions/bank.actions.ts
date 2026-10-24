@@ -16,6 +16,17 @@ interface BankRow extends Models.Row {
   shareabaleId: string;
 }
 
+interface TransferRow extends Models.Row {
+  senderId: string;
+  recieverId: string;
+  senderBankId: string;
+  receiverBankId: string;
+  name: string;
+  amount: string | number;
+  category: string;
+  email: string;
+}
+
 const getRequiredEnv = (name: string) => {
   const value = process.env[name];
   if (!value) {
@@ -316,8 +327,69 @@ export async function getTransactions(dateRange?: {
     }),
   );
 
+  const { account } = await createSessionClient();
+  const user = await account.get();
+  const { tables } = await createAdminClient();
+  const databaseId = getRequiredEnv("APPWRITE_Database_ID");
+  const transactionTableId = getRequiredEnv("APPWRITE_Transaction_Table_ID");
+  const transferRows: TransferRow[] = [];
+  const pageSize = 100;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await tables.listRows<TransferRow>({
+      databaseId,
+      tableId: transactionTableId,
+      queries: [
+        Query.or([
+          Query.equal("senderId", user.$id),
+          Query.equal("recieverId", user.$id),
+        ]),
+        Query.orderDesc("$createdAt"),
+        Query.limit(pageSize),
+        Query.offset(offset),
+      ],
+      total: false,
+      ttl: 0,
+    });
+    transferRows.push(...page.rows);
+    if (page.rows.length < pageSize) break;
+  }
+
+  const transferTransactions = transferRows
+    .filter((row) => {
+      const date = row.$createdAt.slice(0, 10);
+      return date >= start && date <= end;
+    })
+    .map((row) => {
+      const amount = Number(row.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(
+          `Transfer transaction ${row.$id} has an invalid amount.`,
+        );
+      }
+
+      const isSender = row.senderId === user.$id;
+      const name = isSender
+        ? row.name
+        : `Transfer from ${row.email}`;
+
+      return {
+        transaction_id: row.$id,
+        name,
+        amount: isSender ? amount : -amount,
+        date: row.$createdAt.slice(0, 10),
+        pending: true,
+        category: [row.category || "Transfer"],
+        iso_currency_code: "USD",
+        personal_finance_category: null,
+      };
+    });
+
   return {
-    transactions: transactionGroups.flatMap((group) => group.transactions),
+    transactions: [
+      ...transactionGroups.flatMap((group) => group.transactions),
+      ...transferTransactions,
+    ],
     errors: transactionGroups.flatMap((group) =>
       group.error ? [group.error] : [],
     ),

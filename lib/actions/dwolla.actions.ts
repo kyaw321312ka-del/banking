@@ -1,10 +1,50 @@
 
 import "server-only";
 
-import { Client } from "dwolla-v2";
 import { normalizeUsState } from "../us-states";
 
-function getDwollaClient() {
+interface DwollaResponse {
+  headers: Headers;
+  body: unknown;
+}
+
+interface DwollaApiClient {
+  get(path: string): Promise<DwollaResponse>;
+  post(
+    path: string,
+    body: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): Promise<DwollaResponse>;
+}
+
+interface AccessTokenCache {
+  environment: string;
+  key: string;
+  token: string;
+  expiresAt: number;
+}
+
+interface PendingTokenRequest {
+  environment: string;
+  key: string;
+  promise: Promise<string>;
+}
+
+let cachedAccessToken: AccessTokenCache | undefined;
+let pendingTokenRequest: PendingTokenRequest | undefined;
+
+class DwollaApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+    this.name = "DwollaApiError";
+  }
+}
+
+function getDwollaClient(): DwollaApiClient {
   const key = process.env.DWOLLA_KEY;
   const secret = process.env.DWOLLA_SECRET;
   const environment = process.env.DWOLLA_ENV;
@@ -19,11 +59,160 @@ function getDwollaClient() {
     );
   }
 
-  return new Client({
-    environment,
-    key,
-    secret,
-  });
+  const configuredKey = key;
+  const configuredSecret = secret;
+  const configuredEnvironment = environment;
+  const apiUrl =
+    configuredEnvironment === "sandbox"
+      ? "https://api-sandbox.dwolla.com"
+      : "https://api.dwolla.com";
+
+  async function getAccessToken(): Promise<string> {
+    if (
+      cachedAccessToken &&
+      cachedAccessToken.environment === configuredEnvironment &&
+      cachedAccessToken.key === configuredKey &&
+      cachedAccessToken.expiresAt > Date.now() + 60_000
+    ) {
+      return cachedAccessToken.token;
+    }
+
+    if (
+      pendingTokenRequest &&
+      pendingTokenRequest.environment === configuredEnvironment &&
+      pendingTokenRequest.key === configuredKey
+    ) {
+      return pendingTokenRequest.promise;
+    }
+
+    const promise = (async () => {
+      const response = await fetch(`${apiUrl}/token`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${configuredKey}:${configuredSecret}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/vnd.dwolla.v1.hal+json",
+        },
+        body: "grant_type=client_credentials",
+        cache: "no-store",
+      });
+      const responseText = await response.text();
+      let body: unknown;
+
+      try {
+        body = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        body = { message: responseText || "Dwolla returned an invalid response." };
+      }
+
+      if (!response.ok) {
+        const providerMessage =
+          isRecord(body) && typeof body.error_description === "string"
+            ? body.error_description
+            : isRecord(body) && typeof body.message === "string"
+              ? body.message
+              : undefined;
+        const providerCode =
+          isRecord(body) && typeof body.code === "string"
+            ? body.code
+            : isRecord(body) && typeof body.error === "string"
+              ? body.error
+              : undefined;
+        const invalidCredentials =
+          response.status === 401 ||
+          providerCode?.toLowerCase().includes("credential") === true;
+        const message =
+          invalidCredentials
+            ? "Dwolla rejected the API credentials. Check that DWOLLA_KEY and DWOLLA_SECRET are a matching pair for the configured DWOLLA_ENV (sandbox or production)."
+            : providerMessage ??
+              (providerCode
+                ? `Dwolla token request failed with status ${response.status} (${providerCode}).`
+                : `Dwolla token request failed with status ${response.status}.`);
+        throw new DwollaApiError(message, response.status, body);
+      }
+
+      if (
+        !isRecord(body) ||
+        typeof body.access_token !== "string" ||
+        typeof body.expires_in !== "number"
+      ) {
+        throw new Error("Dwolla returned an invalid access token response.");
+      }
+
+      cachedAccessToken = {
+        environment: configuredEnvironment,
+        key: configuredKey,
+        token: body.access_token,
+        expiresAt: Date.now() + body.expires_in * 1000,
+      };
+      return body.access_token;
+    })();
+    const request = {
+      environment: configuredEnvironment,
+      key: configuredKey,
+      promise,
+    };
+    pendingTokenRequest = request;
+
+    try {
+      return await promise;
+    } finally {
+      if (pendingTokenRequest === request) {
+        pendingTokenRequest = undefined;
+      }
+    }
+  }
+
+  async function request(
+    path: string,
+    method: "GET" | "POST",
+    body?: Record<string, unknown>,
+    extraHeaders?: Record<string, string>,
+  ): Promise<DwollaResponse> {
+    const url = new URL(path, `${apiUrl}/`);
+    if (url.origin !== new URL(apiUrl).origin) {
+      throw new Error("Dwolla request URL does not match the configured environment.");
+    }
+
+    const headers = new Headers({
+      Authorization: `Bearer ${await getAccessToken()}`,
+      Accept: "application/vnd.dwolla.v1.hal+json",
+      ...extraHeaders,
+    });
+    if (body) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      cache: "no-store",
+    });
+    const responseText = await response.text();
+    let responseBody: unknown;
+
+    try {
+      responseBody = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      responseBody = { message: responseText || "Dwolla returned an invalid response." };
+    }
+
+    if (!response.ok) {
+      const message =
+        isRecord(responseBody) && typeof responseBody.message === "string"
+          ? responseBody.message
+          : `Dwolla API request failed with status ${response.status}.`;
+      throw new DwollaApiError(message, response.status, responseBody);
+    }
+
+    return { headers: response.headers, body: responseBody };
+  }
+
+  return {
+    get: (path) => request(path, "GET"),
+    post: (path, body, headers) => request(path, "POST", body, headers),
+  };
 }
 
 function getResourceUrl(location: string | null): string {
@@ -56,7 +245,9 @@ export interface DwollaBalance {
 
 export type DwollaBalanceResult =
   | { status: "available"; balance: DwollaBalance }
-  | { status: "not_configured" | "not_available" | "error" };
+  | { status: "not_configured" }
+  | { status: "not_available" }
+  | { status: "error"; message: string };
 
 function getBalanceAmount(value: unknown): number {
   if (!isRecord(value) || typeof value.value !== "string") {
@@ -297,13 +488,34 @@ export async function getDwollaCustomerBalance(
       },
     };
   } catch (error) {
-    console.error("Failed to retrieve the Dwolla customer balance.", {
-      status:
-        isRecord(error) && typeof error.status === "number"
-          ? error.status
-          : undefined,
-    });
-    return { status: "error" };
+    const cause = isRecord(error) && isRecord(error.cause)
+      ? error.cause
+      : undefined;
+    const status =
+      isRecord(error) && typeof error.status === "number"
+        ? error.status
+        : undefined;
+    const errorCode =
+      isRecord(error) && typeof error.code === "string"
+        ? error.code
+        : isRecord(error) &&
+            isRecord(error.body) &&
+            typeof error.body.code === "string"
+          ? error.body.code
+          : undefined;
+    const message =
+      status === 401 || errorCode === "InvalidCredentials"
+        ? "Dwolla rejected the API credentials. Verify that DWOLLA_KEY and DWOLLA_SECRET are a matching pair for the configured DWOLLA_ENV, then restart the server."
+        : status === 403
+          ? "Dwolla denied access to this balance. Confirm the customer is verified and the credentials belong to the same Dwolla environment."
+          : cause && typeof cause.code === "string"
+            ? `Dwolla could not be reached (${cause.code}). Check the server's network connection and try again.`
+            : status
+              ? `Dwolla could not load the balance (HTTP ${status}). Try again later.`
+              : "Dwolla could not load the balance. Check the server log and try again.";
+
+    console.error(`Failed to retrieve the Dwolla customer balance: ${message}`);
+    return { status: "error", message };
   }
 }
 

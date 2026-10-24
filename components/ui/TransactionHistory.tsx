@@ -41,7 +41,7 @@ async function TransactionsContent() {
           Transaction History
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Recent activity from your linked bank accounts.
+          Recent activity from linked bank accounts and transfers.
         </p>
       </header>
 
@@ -71,7 +71,7 @@ async function TransactionsContent() {
           <ReceiptText className="mx-auto mb-3 text-gray-400" size={28} />
           <h2 className="font-semibold text-gray-900">No transactions found</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Available activity from linked accounts will appear here.
+            Activity from linked bank accounts and transfers will appear here.
           </p>
         </div>
       ) : (

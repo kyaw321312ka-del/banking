@@ -109,6 +109,11 @@ const TotalBalanceBox = ({
               </p>
             )}
           </div>
+          {dwollaBalance.status === "error" && (
+            <p className="mt-3 text-xs text-amber-800" role="status">
+              {dwollaBalance.message}
+            </p>
+          )}
         </div>
 
         {/* Account statistics */}

@@ -120,7 +120,7 @@ export default function DwollaBalanceTransferFields({
             ? "Set up your Dwolla customer account before transferring from your balance."
             : balance.status === "not_available"
               ? "A Dwolla Balance is not available for this customer."
-              : "Your Dwolla Balance could not be loaded. Try again later."}
+              : balance.message}
         </p>
       )}
 
